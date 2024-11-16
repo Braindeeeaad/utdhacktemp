@@ -7,5 +7,10 @@
   },
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@types/react": "~18.3.12",
+    "expo": "^52.0.7",
+    "typescript": "^5.3.3"
+  }
 }
