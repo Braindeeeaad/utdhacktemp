@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import Dropzone from 'react-dropzone';
 import { FiUpload, FiFile, FiTrash2, FiLoader } from 'react-icons/fi';
+import axios from 'axios';
 
 function App() {
   const [files, setFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleDrop = (acceptedFiles) => {
     setFiles([...files, ...acceptedFiles.map(file => ({
@@ -17,13 +19,30 @@ function App() {
     setFiles(files.filter(file => file.id !== id));
   };
 
-  const processFiles = () => {
-    setIsProcessing(true);
-    // Simulated processing - in real app this would call the backend
-    setTimeout(() => {
-      setIsProcessing(false);
+  const processFiles = async () => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      const formData = new FormData();
+      files.forEach(({ file }) => {
+        formData.append('files', file);
+      });
+
+      const response = await axios.post('http://localhost:3000/api/upload/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Upload response:', response.data);
       setFiles([]);
-    }, 2000);
+    } catch (err) {
+      setError('Failed to process files. Please try again.');
+      console.error('Error processing files:', err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -95,6 +114,7 @@ function App() {
                 'Process Notes'
               )}
             </button>
+            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
           </div>
         )}
       </div>
