@@ -19,6 +19,7 @@ console.log("PinataJWT: ", process.env.PINATA_JWT);
 console.log("PinataGateway: ", process.env.PINATA_GATEWAY);
 
 
+
 export const getFile = async (uniqueName) => {
     try {
         const dict = await getDict(); 
@@ -60,6 +61,7 @@ export const createMarkDownPDF = async (textContent) => {
 
     return pdfBuffer; // Return 
 }
+
 
 export const updateFile = async (markdown_text, fileName) => {
     try {
