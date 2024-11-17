@@ -7,6 +7,7 @@ function App() {
   const [files, setFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [ocrResults, setOcrResults] = useState([]);
 
   const handleDrop = (acceptedFiles) => {
     setFiles([...files, ...acceptedFiles.map(file => ({
@@ -23,19 +24,26 @@ function App() {
     try {
       setIsProcessing(true);
       setError(null);
+      const results = [];
 
-      const formData = new FormData();
-      files.forEach(({ file }) => {
-        formData.append('files', file);
-      });
+      for (const { file } of files) {
+        const formData = new FormData();
+        formData.append('image', file);
 
-      const response = await axios.post('http://localhost:3000/api/upload/images', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+        const response = await axios.post('http://localhost:3000/api/ocr/process', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-      console.log('Upload response:', response.data);
+        results.push({
+          fileName: file.name,
+          text: response.data.text,
+          timestamp: new Date().toLocaleString()
+        });
+      }
+
+      setOcrResults([...results, ...ocrResults]);
       setFiles([]);
     } catch (err) {
       setError('Failed to process files. Please try again.');
@@ -57,7 +65,7 @@ function App() {
           </p>
         </div>
 
-        <Dropzone onDrop={handleDrop} accept={{'image/*': ['.png', '.jpg', '.jpeg']}}>
+        <Dropzone onDrop={handleDrop} accept={{'image/*': ['.png', '.jpg', '.jpeg', 'pdf']}}>
           {({getRootProps, getInputProps}) => (
             <div 
               {...getRootProps()} 
@@ -115,6 +123,31 @@ function App() {
               )}
             </button>
             {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+          </div>
+        )}
+
+        {ocrResults.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">OCR Results</h2>
+            <div className="space-y-6">
+              {ocrResults.map((result, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-md p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {result.fileName}
+                    </h3>
+                    <span className="text-sm text-gray-500">
+                      {result.timestamp}
+                    </span>
+                  </div>
+                  <div className="prose max-w-none">
+                    <p className="text-gray-700 whitespace-pre-wrap">
+                      {result.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
