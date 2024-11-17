@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Dropzone from 'react-dropzone';
-import { FiUpload, FiFile, FiTrash2, FiLoader } from 'react-icons/fi';
+import { FiUpload, FiFile, FiTrash2, FiLoader, FiDownload } from 'react-icons/fi';
 import axios from 'axios';
 
 function App() {
@@ -8,6 +8,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [ocrResults, setOcrResults] = useState([]);
+  const [combinedDocument, setCombinedDocument] = useState(null);
+  const [isCombining, setIsCombining] = useState(false);
 
   const handleDrop = (acceptedFiles) => {
     setFiles([...files, ...acceptedFiles.map(file => ({
@@ -36,11 +38,13 @@ function App() {
           },
         });
 
-        results.push({
-          fileName: file.name,
-          text: response.data.text,
-          timestamp: new Date().toLocaleString()
-        });
+        if (response.data.text) {
+          results.push({
+            fileName: file.name,
+            text: response.data.text,
+            timestamp: new Date().toLocaleString()
+          });
+        }
       }
 
       setOcrResults([...results, ...ocrResults]);
@@ -51,6 +55,44 @@ function App() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const combineDocuments = async () => {
+    try {
+      setIsCombining(true);
+      setError(null);
+
+      // Prepare the documents for combination
+      const documents = ocrResults.map(result => ({
+        text: result.text,
+        fileName: result.fileName
+      }));
+
+      const response = await axios.post('http://localhost:3000/api/ocr/combine', {
+        documents
+      });
+
+      setCombinedDocument(response.data.combinedText);
+    } catch (err) {
+      setError('Failed to combine documents. Please try again.');
+      console.error('Error combining documents:', err);
+    } finally {
+      setIsCombining(false);
+    }
+  };
+
+  const downloadCombinedDocument = () => {
+    if (!combinedDocument) return;
+
+    const blob = new Blob([combinedDocument], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'combined-notes.txt';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   return (
@@ -65,7 +107,7 @@ function App() {
           </p>
         </div>
 
-        <Dropzone onDrop={handleDrop} accept={{'image/*': ['.png', '.jpg', '.jpeg', 'pdf']}}>
+        <Dropzone onDrop={handleDrop} accept={{'image/*': ['.png', '.jpg', '.jpeg']}}>
           {({getRootProps, getInputProps}) => (
             <div 
               {...getRootProps()} 
@@ -116,19 +158,43 @@ function App() {
               {isProcessing ? (
                 <>
                   <FiLoader className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
-                  Processing...
+                  Processing OCR...
                 </>
               ) : (
                 'Process Notes'
               )}
             </button>
-            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 rounded-md">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
         {ocrResults.length > 0 && (
           <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">OCR Results</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">OCR Results</h2>
+              <button
+                onClick={combineDocuments}
+                disabled={isCombining}
+                className={`flex items-center px-4 py-2 rounded-md text-white ${
+                  isCombining ? 'bg-green-400' : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {isCombining ? (
+                  <>
+                    <FiLoader className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                    Combining...
+                  </>
+                ) : (
+                  'Combine Documents'
+                )}
+              </button>
+            </div>
+
             <div className="space-y-6">
               {ocrResults.map((result, index) => (
                 <div key={index} className="bg-white rounded-lg shadow-md p-6">
@@ -147,6 +213,28 @@ function App() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {combinedDocument && (
+          <div className="mt-12">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Combined Document</h2>
+              <button
+                onClick={downloadCombinedDocument}
+                className="flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <FiDownload className="mr-2 h-5 w-5" />
+                Download
+              </button>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="prose max-w-none">
+                <p className="text-gray-700 whitespace-pre-wrap">
+                  {combinedDocument}
+                </p>
+              </div>
             </div>
           </div>
         )}
